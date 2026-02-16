@@ -8,6 +8,7 @@ import type { ProcessingResult } from "./types.js";
 
 const dryRun = process.argv.includes("--dry-run");
 const batch = process.argv.includes("--batch");
+const reindex = process.argv.includes("--reindex");
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -54,6 +55,11 @@ async function main() {
 
   if (withoutImages.length === 0) {
     console.log("All products already have images. Nothing to do!");
+    if (reindex) {
+      console.log("\nTriggering Shopware indexing...");
+      await shopware.triggerIndexing();
+      console.log("Indexing triggered successfully.");
+    }
     rl.close();
     return;
   }
@@ -196,9 +202,21 @@ async function main() {
     }
   }
 
+  // Trigger indexing if any images were uploaded
+  const uploaded = results.filter((r) => r.status === "uploaded");
+  if (uploaded.length > 0) {
+    console.log("\nTriggering Shopware indexing...");
+    try {
+      await shopware.triggerIndexing();
+      console.log("Indexing triggered successfully.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`Indexing failed: ${message}`);
+    }
+  }
+
   // Summary
   console.log("\n=== Summary ===");
-  const uploaded = results.filter((r) => r.status === "uploaded");
   const skipped = results.filter((r) => r.status === "skipped");
   const failed = results.filter((r) => r.status === "failed");
 

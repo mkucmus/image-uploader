@@ -68,6 +68,7 @@ export class ShopwareClient {
         body: JSON.stringify({
           limit,
           page,
+          "total-count-mode": 1,
           filter: [
             {
               type: "equals",
@@ -122,6 +123,7 @@ export class ShopwareClient {
         body: JSON.stringify({
           limit,
           page,
+          "total-count-mode": 1,
           filter: [
             {
               type: "equals",
@@ -232,6 +234,18 @@ export class ShopwareClient {
     if (!coverRes.ok) {
       const body = await coverRes.text();
       throw new Error(`Failed to set cover image (${coverRes.status}): ${body}`);
+    }
+  }
+
+  async triggerIndexing(): Promise<void> {
+    const res = await fetch(`${this.baseUrl}/api/_action/indexing`, {
+      method: "POST",
+      headers: await this.getHeaders(),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Failed to trigger indexing (${res.status}): ${body}`);
     }
   }
 }
