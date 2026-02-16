@@ -1,0 +1,15 @@
+Generate a photorealistic product image for a Scandinavian-style handcrafted furniture e-commerce store.
+
+Style guidelines:
+- Warm, muted neutral background: soft taupe, warm gray, or light beige tones
+- Scandinavian minimalist aesthetic with natural, organic feel
+- Warm natural lighting, as if in a cozy well-lit room with soft diffused shadows
+- Product centered in frame, shown at a slight angle to reveal craftsmanship and form
+- Emphasize natural wood grain, texture, and material quality
+- Sustainably crafted, timeless design feel — not trendy, but enduring
+- Subtle lifestyle context: a hint of a room setting (wooden floor, neutral wall) without clutter
+- Color palette: warm oak, natural wood, cream, soft gray, woven textures
+- High quality, photorealistic rendering with editorial photography feel
+- No text, watermarks, logos, or people in the image
+
+Create a visually appealing product image based on the following product details:
