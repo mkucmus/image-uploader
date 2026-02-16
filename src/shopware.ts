@@ -13,6 +13,7 @@ function uuid(): string {
 export class ShopwareClient {
   private baseUrl: string;
   private accessToken: string | null = null;
+  private tokenExpiresAt = 0;
 
   constructor(private config: Config) {
     this.baseUrl = config.shopwareApiUrl;
@@ -36,10 +37,18 @@ export class ShopwareClient {
 
     const data = (await res.json()) as ShopwareAuthToken;
     this.accessToken = data.access_token;
+    // Refresh 60s before actual expiry to avoid edge-case failures
+    this.tokenExpiresAt = Date.now() + (data.expires_in - 60) * 1000;
   }
 
-  private getHeaders(): Record<string, string> {
-    if (!this.accessToken) throw new Error("Not authenticated. Call authenticate() first.");
+  private async ensureAuth(): Promise<void> {
+    if (!this.accessToken || Date.now() >= this.tokenExpiresAt) {
+      await this.authenticate();
+    }
+  }
+
+  private async getHeaders(): Promise<Record<string, string>> {
+    await this.ensureAuth();
     return {
       Authorization: `Bearer ${this.accessToken}`,
       "Content-Type": "application/json",
@@ -55,7 +64,7 @@ export class ShopwareClient {
     while (true) {
       const res = await fetch(`${this.baseUrl}/api/search/product`, {
         method: "POST",
-        headers: this.getHeaders(),
+        headers: await this.getHeaders(),
         body: JSON.stringify({
           limit,
           page,
@@ -109,7 +118,7 @@ export class ShopwareClient {
     while (true) {
       const res = await fetch(`${this.baseUrl}/api/search/product`, {
         method: "POST",
-        headers: this.getHeaders(),
+        headers: await this.getHeaders(),
         body: JSON.stringify({
           limit,
           page,
@@ -160,7 +169,7 @@ export class ShopwareClient {
     const mediaId = uuid();
     const createRes = await fetch(`${this.baseUrl}/api/media`, {
       method: "POST",
-      headers: this.getHeaders(),
+      headers: await this.getHeaders(),
       body: JSON.stringify({ id: mediaId }),
     });
 
@@ -171,6 +180,7 @@ export class ShopwareClient {
 
     // Step 2: Upload the actual image file
     const uploadUrl = `${this.baseUrl}/api/_action/media/${mediaId}/upload?extension=png&fileName=${encodeURIComponent(fileName)}`;
+    await this.ensureAuth();
     const uploadRes = await fetch(uploadUrl, {
       method: "POST",
       headers: {
@@ -193,7 +203,7 @@ export class ShopwareClient {
     // Step 1: Create product-media association
     const assocRes = await fetch(`${this.baseUrl}/api/product-media`, {
       method: "POST",
-      headers: this.getHeaders(),
+      headers: await this.getHeaders(),
       body: JSON.stringify({
         productId,
         mediaId,
@@ -213,7 +223,7 @@ export class ShopwareClient {
     // Step 2: Set as cover image
     const coverRes = await fetch(`${this.baseUrl}/api/product/${productId}`, {
       method: "PATCH",
-      headers: this.getHeaders(),
+      headers: await this.getHeaders(),
       body: JSON.stringify({
         coverId: productMediaId,
       }),

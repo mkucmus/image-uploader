@@ -7,6 +7,7 @@ import { ShopwareClient } from "./shopware.js";
 import type { ProcessingResult } from "./types.js";
 
 const dryRun = process.argv.includes("--dry-run");
+const batch = process.argv.includes("--batch");
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -32,6 +33,7 @@ function truncate(text: string, maxLen: number): string {
 async function main() {
   console.log("=== Shopware 6 Product Image Generator ===");
   if (dryRun) console.log("[DRY RUN] Skipping image generation and upload.\n");
+  else if (batch) console.log("[BATCH] Auto-generating and uploading all images.\n");
   else console.log();
 
   // Load config
@@ -98,71 +100,85 @@ async function main() {
     if (hasExistingImage) console.log(`  [Image already generated: ${previewPath}]`);
 
     try {
-      let imageBuffer: Buffer = Buffer.alloc(0);
+      let imageBuffer: Buffer;
 
-      if (hasExistingImage) {
-        const uploadAnswer = await ask("\n  Image exists. Upload to Shopware? (y/n/r=regenerate/q=quit): ");
-
-        if (uploadAnswer === "q") {
-          console.log("\nQuitting...");
-          break;
-        }
-
-        if (uploadAnswer === "r") {
-          console.log("  Regenerating...");
-          imageBuffer = await imageGen.generate(name, description);
-          fs.writeFileSync(previewPath, imageBuffer);
-          console.log(`  New image saved: ${previewPath}`);
-
-          const confirm = await ask("  Upload this image to Shopware? (y/n): ");
-          if (confirm !== "y") {
-            results.push({ productId: product.id, productName: name, status: "skipped" });
-            console.log("  Skipped.");
-            continue;
-          }
-        } else if (uploadAnswer === "y") {
+      if (batch) {
+        // Batch mode: use existing image or generate, then upload automatically
+        if (hasExistingImage) {
           imageBuffer = Buffer.from(fs.readFileSync(previewPath));
         } else {
-          results.push({ productId: product.id, productName: name, status: "skipped" });
-          console.log("  Skipped.");
-          continue;
-        }
-      } else {
-        const generateAnswer = await ask("\n  Generate image? (y/n/q=quit): ");
-
-        if (generateAnswer === "q") {
-          console.log("\nQuitting...");
-          break;
-        }
-
-        if (generateAnswer !== "y") {
-          results.push({ productId: product.id, productName: name, status: "skipped" });
-          console.log("  Skipped.");
-          continue;
-        }
-
-        imageBuffer = await imageGen.generate(name, description);
-        fs.writeFileSync(previewPath, imageBuffer);
-        console.log(`  Image saved for preview: ${previewPath}`);
-
-        const uploadAnswer = await ask("  Upload this image to Shopware? (y/n/r=regenerate): ");
-
-        if (uploadAnswer === "r") {
-          console.log("  Regenerating...");
+          console.log("  Generating image...");
           imageBuffer = await imageGen.generate(name, description);
           fs.writeFileSync(previewPath, imageBuffer);
-          console.log(`  New image saved: ${previewPath}`);
+        }
+      } else {
+        // Interactive mode
+        imageBuffer = Buffer.alloc(0);
 
-          const confirm = await ask("  Upload this image to Shopware? (y/n): ");
-          if (confirm !== "y") {
+        if (hasExistingImage) {
+          const uploadAnswer = await ask("\n  Image exists. Upload to Shopware? (y/n/r=regenerate/q=quit): ");
+
+          if (uploadAnswer === "q") {
+            console.log("\nQuitting...");
+            break;
+          }
+
+          if (uploadAnswer === "r") {
+            console.log("  Regenerating...");
+            imageBuffer = await imageGen.generate(name, description);
+            fs.writeFileSync(previewPath, imageBuffer);
+            console.log(`  New image saved: ${previewPath}`);
+
+            const confirm = await ask("  Upload this image to Shopware? (y/n): ");
+            if (confirm !== "y") {
+              results.push({ productId: product.id, productName: name, status: "skipped" });
+              console.log("  Skipped.");
+              continue;
+            }
+          } else if (uploadAnswer === "y") {
+            imageBuffer = Buffer.from(fs.readFileSync(previewPath));
+          } else {
             results.push({ productId: product.id, productName: name, status: "skipped" });
             console.log("  Skipped.");
             continue;
           }
-        } else if (uploadAnswer !== "y") {
-          results.push({ productId: product.id, productName: name, status: "skipped" });
-          console.log("  Skipped upload.");
-          continue;
+        } else {
+          const generateAnswer = await ask("\n  Generate image? (y/n/q=quit): ");
+
+          if (generateAnswer === "q") {
+            console.log("\nQuitting...");
+            break;
+          }
+
+          if (generateAnswer !== "y") {
+            results.push({ productId: product.id, productName: name, status: "skipped" });
+            console.log("  Skipped.");
+            continue;
+          }
+
+          imageBuffer = await imageGen.generate(name, description);
+          fs.writeFileSync(previewPath, imageBuffer);
+          console.log(`  Image saved for preview: ${previewPath}`);
+
+          const uploadAnswer = await ask("  Upload this image to Shopware? (y/n/r=regenerate): ");
+
+          if (uploadAnswer === "r") {
+            console.log("  Regenerating...");
+            imageBuffer = await imageGen.generate(name, description);
+            fs.writeFileSync(previewPath, imageBuffer);
+            console.log(`  New image saved: ${previewPath}`);
+
+            const confirm = await ask("  Upload this image to Shopware? (y/n): ");
+            if (confirm !== "y") {
+              results.push({ productId: product.id, productName: name, status: "skipped" });
+              console.log("  Skipped.");
+              continue;
+            }
+          } else if (uploadAnswer !== "y") {
+            results.push({ productId: product.id, productName: name, status: "skipped" });
+            console.log("  Skipped upload.");
+            continue;
+          }
         }
       }
 
